@@ -150,7 +150,7 @@ export LD_LIBRARY_PATH
 
 # Privileged execution
 # Add the "apache" user
-if [ "$SUGID" == "root" ]
+if [ ".$SUGID" = ".root" ]
 then
     apache_uid=48
 
