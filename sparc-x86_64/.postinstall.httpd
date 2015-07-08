@@ -137,14 +137,6 @@ else
     exit 20
 fi
 
-if [ ".$LD_LIBRARY_PATH" = . ]
-then
-    LD_LIBRARY_PATH="$INSTALL_ROOT/$LIB_DIR"
-else
-    LD_LIBRARY_PATH="$INSTALL_ROOT/$LIB_DIR:$LD_LIBRARY_PATH"
-fi
-export LD_LIBRARY_PATH
-
 #
 # Apache Httpd post install script
 
@@ -274,7 +266,33 @@ EOH
     fi
 )
 
+#
+# Configure Solaris runtime linker environment
+#
+# Privileged execution
+if [ ".$SUGID" = ".root" ]
+then
+    if [ -x /usr/bin/crle ]
+    then
+        if [ ".$LIB_DIR" = ".lib64" ]
+        then
+            /usr/bin/crle -u -64 -l "$INSTALL_ROOT/$LIB_DIR"
+        else
+            /usr/bin/crle -u -l "$INSTALL_ROOT/$LIB_DIR"
+        fi
+    fi
+else
+    echo "WARNING: Not a superuser. Solaris runtime linker environment \`crle' was not updated." >&2
+fi
+
 (
+    # LD_LIBRARY_PATH for apachectl
+    sed "s;@ld_library_path@;\"$INSTALL_ROOT/$LIB_DIR:$LD_LIBRARY_PATH\";g" "$INSTALL_ROOT/sbin/apachectl.in" > "$INSTALL_ROOT/sbin/apachectl.in.tmp"
+    mv "$INSTALL_ROOT/sbin/apachectl.in.tmp" "$INSTALL_ROOT/sbin/apachectl.in" 2> /dev/null || true
+    # LD_LIBRARY_PATH for sysconfig
+    echo "LD_LIBRARY_PATH=\"$INSTALL_ROOT/$LIB_DIR:$LD_LIBRARY_PATH\"" >> "$INSTALL_ROOT/etc/sysconfig/httpd.in"
+    echo "export LD_LIBRARY_PATH"  >> "$INSTALL_ROOT/etc/sysconfig/httpd.in"
+
     # Copy .in files preserving existing
     cd "$INSTALL_ROOT/etc/httpd/conf.d"
     for f in ssl.conf welcome.conf manual.conf proxy_ajp.conf mod_cluster.conf
